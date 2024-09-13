@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import time
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -15,6 +15,9 @@ app = FastAPI()
 
 class Article(BaseModel):
     content: str
+
+class SimilarityRequest(Article):
+    threshold: float = Field(ge=0, le=1, default=0.8)
 
 def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
@@ -44,19 +47,20 @@ database = read_from_file()
 database_embeddings = [get_embedding(preprocess_text(article['content'])) for article in database]
 
 
-@app.post("/similarity")
-async def compare_article(article: Article):
+@app.get("/similarity")
+async def compare_article(req: SimilarityRequest):
     start_time = time.time()
     
-    preprocessed_article = preprocess_text(article.content)
+    preprocessed_article = preprocess_text(req.content)
     article_embedding = get_embedding(preprocessed_article)
 
     results = []
     for i, db_embedding in enumerate(database_embeddings):
         similarity = compare_topic_similarity(article_embedding, db_embedding)
-        if similarity > 0.6:
+        # TODO: Define a threshold for similarity
+        if similarity > req.threshold:
             match_found = True
-            results.append({"article_id": i+1, "similarity": similarity, "title": db_article['title']})
+            results.append({"article_id": i+1, "similarity": similarity, "title": database[i]['title']})
     
     results.sort(key=lambda x: x['similarity'], reverse=True)
     
