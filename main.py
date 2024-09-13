@@ -12,6 +12,7 @@ from functools import lru_cache
 
 
 app = FastAPI()
+
 # Define a global variable to store the last updated time of the recent n articles
 last_updated_time = time.time()
 
@@ -27,6 +28,7 @@ def preprocess_text(text):
     text = re.sub(r'http\S+', '[URL]', text)
     text = re.sub(r'\d+', '[NUM]', text)
     return text
+
 
 @lru_cache(maxsize=1000)
 def get_embedding(text):
@@ -46,6 +48,7 @@ model_name = 'all-mpnet-base-v2'
 model = SentenceTransformer(model_name)
 database = read_from_file()
 
+# pre-calculate the embeddings for all recent n articles.
 database_embeddings = [get_embedding(preprocess_text(article['content'])) for article in database]
 
 
@@ -83,7 +86,7 @@ async def last_updated():
 
 @app.post("/recent")
 async def update_recent_articles(new_article: Article):
-    # fix global variable
+    # TODO: fix global variable
     global last_updated_time
     last_updated_time = time.time()
     new_article_embedding = get_embedding(preprocess_text(new_article.content))
@@ -94,9 +97,10 @@ async def update_recent_articles(new_article: Article):
     database_embeddings.append(new_article_embedding)
     database_embeddings = database_embeddings[1:]
     return {
-        "message": "Article added successfully",
+        "message": "Recent articles updated successfully",
         "last_updated": last_updated_time
     }
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
