@@ -12,6 +12,8 @@ from functools import lru_cache
 
 
 app = FastAPI()
+# Define a global variable to store the last updated time of the recent n articles
+last_updated_time = time.time()
 
 class Article(BaseModel):
     content: str
@@ -75,6 +77,26 @@ async def compare_article(req: SimilarityRequest):
         "processing_time": processing_time
     }
 
+@app.get("last_updated")
+async def last_updated():
+    return {"last_updated": last_updated_time}
+
+@app.post("/recent")
+async def update_recent_articles(new_article: Article):
+    # fix global variable
+    global last_updated_time
+    last_updated_time = time.time()
+    new_article_embedding = get_embedding(preprocess_text(new_article.content))
+
+    # add new article and remove the oldest from the recent n articles
+    database.append(new_article)
+    database = database[1:]
+    database_embeddings.append(new_article_embedding)
+    database_embeddings = database_embeddings[1:]
+    return {
+        "message": "Article added successfully",
+        "last_updated": last_updated_time
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
